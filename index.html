@@ -15,12 +15,6 @@
 <meta name="apple-mobile-web-app-title" content="VoidLine Invest" />
 <meta name="mobile-web-app-capable" content="yes" />
 <script>
-  // Persistência local: cada visitante guarda os próprios dados só no
-  // navegador dele (localStorage), nada é enviado a um servidor.
-  window.storage = {
-    get: async (key) => ({ value: localStorage.getItem(key) }),
-    set: async (key, value) => { localStorage.setItem(key, value); return true; },
-  };
   window.addEventListener("error", (e) => {
     const root = document.getElementById("root");
     if (root && !root.hasChildNodes()) {
@@ -38,6 +32,22 @@
 <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
 <script src="https://unpkg.com/recharts@2/umd/Recharts.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDe-SyztGty7jmu3e7o4_Q7E7ypebiwkvI",
+    authDomain: "voidline-invest.firebaseapp.com",
+    projectId: "voidline-invest",
+    storageBucket: "voidline-invest.firebasestorage.app",
+    messagingSenderId: "898910738728",
+    appId: "1:898910738728:web:65cd4cfc99b2037c10d81d",
+  };
+  firebase.initializeApp(firebaseConfig);
+  window.auth = firebase.auth();
+  window.db = firebase.firestore();
+</script>
 </head>
 <body>
 <div id="root"></div>

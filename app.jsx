@@ -204,9 +204,8 @@ function seedData() {
 }
 
 /* ============================================================
-   PERSISTÊNCIA
+   AUTENTICAÇÃO + PERSISTÊNCIA (Firebase Auth + Firestore)
    ============================================================ */
-const STORAGE_KEY = "findash:v1";
 
 // Pra cada modelo recorrente, garante que já exista um lançamento gerado a partir dele
 // no mês atual (marcado com templateId); se não existir, cria um na data de hoje.
@@ -227,16 +226,25 @@ function generateRecurringTransactions(data) {
   return { ...data, transactions: [...generated, ...data.transactions] };
 }
 
-function useAppState() {
+// user === undefined: verificando sessão · null: deslogado · objeto: logado
+function useAuth() {
+  const [user, setUser] = useState(undefined);
+  useEffect(() => window.auth.onAuthStateChanged(setUser), []);
+  return user;
+}
+
+function useAppState(uid) {
   const [data, setData] = useState(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    if (!uid) return;
+    setLoaded(false);
     (async () => {
       try {
-        const res = await window.storage.get(STORAGE_KEY, false);
-        if (res && res.value) {
-          setData(generateRecurringTransactions(normalizeData(JSON.parse(res.value))));
+        const snap = await window.db.collection("users").doc(uid).get();
+        if (snap.exists) {
+          setData(generateRecurringTransactions(normalizeData(snap.data())));
         } else {
           setData(emptyData());
         }
@@ -246,15 +254,15 @@ function useAppState() {
         setLoaded(true);
       }
     })();
-  }, []);
+  }, [uid]);
 
   useEffect(() => {
-    if (!loaded || !data) return;
+    if (!loaded || !data || !uid) return;
     const t = setTimeout(() => {
-      window.storage.set(STORAGE_KEY, JSON.stringify(data), false).catch(() => {});
-    }, 300);
+      window.db.collection("users").doc(uid).set(data).catch(() => {});
+    }, 500);
     return () => clearTimeout(t);
-  }, [data, loaded]);
+  }, [data, loaded, uid]);
 
   return [data, setData, loaded];
 }
@@ -456,6 +464,119 @@ function SplashScreen() {
   );
 }
 
+const AUTH_ERROR_MESSAGES = {
+  "auth/invalid-email": "E-mail inválido.",
+  "auth/user-disabled": "Esta conta foi desativada.",
+  "auth/user-not-found": "Não existe conta com esse e-mail.",
+  "auth/wrong-password": "Senha incorreta.",
+  "auth/invalid-credential": "E-mail ou senha incorretos.",
+  "auth/email-already-in-use": "Já existe uma conta com esse e-mail.",
+  "auth/weak-password": "A senha precisa ter pelo menos 6 caracteres.",
+  "auth/popup-closed-by-user": "Login cancelado.",
+  "auth/network-request-failed": "Falha de conexão. Tente novamente.",
+  "auth/too-many-requests": "Muitas tentativas. Aguarde um pouco e tente de novo.",
+};
+
+function GoogleG({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18">
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 01-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.81.54-1.85.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.98v2.33A9 9 0 009 18z" />
+      <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 013.68 9c0-.59.1-1.16.27-1.7V4.97H.98A9 9 0 000 9c0 1.45.35 2.83.98 4.03z" />
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 00.98 4.97L3.95 7.3C4.66 5.17 6.65 3.58 9 3.58z" />
+    </svg>
+  );
+}
+
+function LoginScreen() {
+  const [mode, setMode] = useState("signin"); // "signin" | "signup"
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const runAuth = async (fn) => {
+    setError("");
+    setBusy(true);
+    try {
+      await fn();
+    } catch (e) {
+      setError(AUTH_ERROR_MESSAGES[e.code] || "Não foi possível entrar. Tente de novo.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitEmail = () => runAuth(() => (
+    mode === "signin"
+      ? window.auth.signInWithEmailAndPassword(email, password)
+      : window.auth.createUserWithEmailAndPassword(email, password)
+  ));
+
+  const submitGoogle = () => runAuth(() => window.auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()));
+
+  return (
+    <div style={{
+      background: T.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: "'Inter', system-ui, sans-serif", padding: 16,
+    }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');`}</style>
+      <div style={{
+        width: "100%", maxWidth: 380, background: T.surface1, border: `1px solid ${T.border}`, borderRadius: 20,
+        padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+      }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginBottom: 22 }}>
+          <span style={{
+            width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${T.amber}, #6C5CE0)`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <Icon name="trend" size={26} color="#fff" />
+          </span>
+          <p style={{ fontFamily: "'Manrope', 'Inter', sans-serif", fontSize: 19, fontWeight: 800, margin: 0 }}>
+            VoidLine <span style={{ color: T.amber }}>Invest</span>
+          </p>
+        </div>
+
+        <div style={{ display: "flex", gap: 6, marginBottom: 18, background: T.surface0, borderRadius: 12, padding: 4 }}>
+          {[["signin", "Entrar"], ["signup", "Criar conta"]].map(([m, label]) => (
+            <button key={m} onClick={() => { setMode(m); setError(""); }} style={{
+              flex: 1, padding: "8px", borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
+              background: mode === m ? T.surface2 : "transparent", color: mode === m ? T.textPrimary : T.textMuted,
+            }}>{label}</button>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Field label="E-mail">
+            <TextInput type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" autoComplete="email" />
+          </Field>
+          <Field label="Senha">
+            <TextInput
+              type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••" autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              onKeyDown={(e) => { if (e.key === "Enter" && email && password && !busy) submitEmail(); }}
+            />
+          </Field>
+          {error && <p style={{ fontSize: 12, color: T.red, margin: 0 }}>{error}</p>}
+          <Btn variant="primary" onClick={submitEmail} style={{ justifyContent: "center", opacity: busy ? 0.7 : 1 }}>
+            {busy ? "Aguarde..." : mode === "signin" ? "Entrar" : "Criar conta"}
+          </Btn>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0" }}>
+            <div style={{ flex: 1, height: 1, background: T.border }} />
+            <span style={{ fontSize: 11, color: T.textMuted }}>ou</span>
+            <div style={{ flex: 1, height: 1, background: T.border }} />
+          </div>
+
+          <Btn variant="ghost" onClick={submitGoogle} style={{ justifyContent: "center", opacity: busy ? 0.7 : 1 }}>
+            <GoogleG size={15} /> entrar com Google
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SectionTitle({ children, right }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "28px 0 12px" }}>
@@ -598,7 +719,8 @@ function useComputed(data) {
    APP
    ============================================================ */
 function App() {
-  const [data, setData, loaded] = useAppState();
+  const user = useAuth();
+  const [data, setData, loaded] = useAppState(user ? user.uid : null);
   const computed = useComputed(data);
   const [tab, setTab] = useState("dashboard");
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -640,7 +762,13 @@ function App() {
     return () => clearTimeout(t);
   }, []);
 
-  if (!loaded || !data || !computed || !splashMinElapsed) {
+  if (user === undefined || !splashMinElapsed) {
+    return <SplashScreen />;
+  }
+  if (user === null) {
+    return <LoginScreen />;
+  }
+  if (!loaded || !data || !computed) {
     return <SplashScreen />;
   }
 
@@ -712,6 +840,23 @@ function App() {
             Patrimônio total
           </p>
           <span style={{ fontFamily: "'Manrope', 'Inter', sans-serif", fontSize: 18, color: T.textPrimary, fontWeight: 800, letterSpacing: -0.3 }}>{fmtBRL(computed.patrimonioTotal)}</span>
+        </div>
+        <div style={{
+          marginTop: 8, padding: "10px 12px", borderRadius: 14, background: T.surface1, border: `1px solid ${T.border}`,
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <span style={{
+            width: 24, height: 24, borderRadius: "50%", background: T.surface2, flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", fontSize: 11, fontWeight: 700, color: T.textSecondary,
+          }}>
+            {user.photoURL ? <img src={user.photoURL} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (user.email || "?")[0].toUpperCase()}
+          </span>
+          <span style={{ fontSize: 11.5, color: T.textSecondary, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {user.email}
+          </span>
+          <button onClick={() => window.auth.signOut()} title="Sair" style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", flexShrink: 0, padding: 2 }}>
+            <Icon name="x" size={13} />
+          </button>
         </div>
       </div>
 
