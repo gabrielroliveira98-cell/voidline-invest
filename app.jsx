@@ -806,7 +806,7 @@ function App() {
         .fd-grid-2 { display:grid; grid-template-columns: 1fr 1fr; }
         .fd-alerts-panel { width: 320px; max-width: 92vw; }
         .fd-tx-scroll { overflow-x: auto; }
-        @media (max-width:860px) {
+        @media (max-width:1024px) {
           .fd-sidebar { display:none !important; }
           .fd-mobilenav { display:flex !important; }
         }
