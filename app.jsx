@@ -440,6 +440,7 @@ function SplashScreen() {
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+        * { box-sizing: border-box; }
         @keyframes fd-splash-pulse { 0%,100% { opacity:.35; transform: scaleX(.3); } 50% { opacity:1; transform: scaleX(1); } }
         .fd-splash-bar { animation: fd-splash-pulse 1.4s ease-in-out infinite; transform-origin: left; }
       `}</style>
@@ -520,7 +521,10 @@ function LoginScreen() {
       background: T.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
       fontFamily: "'Inter', system-ui, sans-serif", padding: 16,
     }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+        * { box-sizing: border-box; }
+      `}</style>
       <div style={{
         width: "100%", maxWidth: 380, background: T.surface1, border: `1px solid ${T.border}`, borderRadius: 20,
         padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
@@ -899,6 +903,9 @@ function App() {
             </Btn>
             <Btn small variant="ghost" onClick={() => setConfirmReset("clear")}>
               <Icon name="trash" size={13} /> limpar dados
+            </Btn>
+            <Btn small variant="ghost" onClick={() => window.auth.signOut()} title={user.email}>
+              <Icon name="x" size={13} /> sair
             </Btn>
             <div style={{ position: "relative" }}>
               <Btn variant="ghost" onClick={() => setAlertsOpen((v) => !v)}>
