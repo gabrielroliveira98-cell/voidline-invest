@@ -526,8 +526,8 @@ function LoginScreen() {
         * { box-sizing: border-box; }
       `}</style>
       <div style={{
-        width: "100%", maxWidth: 380, background: T.surface1, border: `1px solid ${T.border}`, borderRadius: 20,
-        padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+        width: "100%", maxWidth: 380, minWidth: 0, background: T.surface1, border: `1px solid ${T.border}`, borderRadius: 20,
+        padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.5)", boxSizing: "border-box",
       }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginBottom: 22 }}>
           <span style={{
@@ -807,7 +807,7 @@ function App() {
         .fd-alerts-panel { width: 320px; max-width: 92vw; }
         .fd-tx-scroll { overflow-x: auto; }
         @media (max-width:860px) {
-          .fd-sidebar { display:none; }
+          .fd-sidebar { display:none !important; }
           .fd-mobilenav { display:flex !important; }
         }
         @media (max-width:700px) {
