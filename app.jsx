@@ -32,6 +32,7 @@ const PIE_COLORS = ["#8B7CFF", "#00D68A", "#3FA9FF", "#FF5C6C", "#FFB84F", "#4FE
 
 const CATEGORIES_META = ["Casa", "Carro", "Viagem", "Notebook", "Investimentos", "Faculdade", "Emergência", "Outro"];
 const INVESTMENT_TYPES = ["CDB", "Tesouro Direto", "FII", "ETF", "Ações", "Caixinha", "LCI/LCA", "Poupança", "Cripto", "Outro"];
+const TICKER_TYPES = ["FII", "ETF", "Ações"];
 const EXPENSE_CATEGORIES = ["Moradia", "Alimentação", "Transporte", "Saúde", "Educação", "Lazer", "Assinaturas", "Outros"];
 const DEBT_TYPES = ["Cartão de crédito", "Empréstimo", "Financiamento", "Outro"];
 const IR_ISENTO_TYPES = ["LCI/LCA", "Poupança"];
@@ -102,6 +103,7 @@ function emptyData() {
     transactions: [],
     debts: [],
     recurringTemplates: [],
+    settings: { brapiToken: "" },
   };
 }
 
@@ -120,7 +122,20 @@ function normalizeData(raw) {
   if (!Array.isArray(d.transactions)) d.transactions = [];
   d.transactions = d.transactions.map((t) => ({ category: t.type === "receita" ? "" : "Outros", ...t }));
   if (!d.emergencyFund) d.emergencyFund = { current: 0, target: 0 };
+  if (!d.settings) d.settings = { brapiToken: "" };
   return d;
+}
+
+// Busca cotações em lote na brapi.dev (gratuita, mas exige token pessoal —
+// veja brapi.dev/dashboard). Retorna um mapa { TICKER: precoAtual }.
+async function fetchBrapiQuotes(tickers, token) {
+  if (!token) throw new Error("Configure seu token da brapi.dev antes de atualizar cotações.");
+  const res = await fetch(`https://brapi.dev/api/quote/${encodeURIComponent(tickers.join(","))}?token=${encodeURIComponent(token)}`);
+  const json = await res.json();
+  if (json.error) throw new Error(json.message || "Erro ao buscar cotações.");
+  const priceBySymbol = {};
+  (json.results || []).forEach((r) => { priceBySymbol[r.symbol] = r.regularMarketPrice; });
+  return priceBySymbol;
 }
 
 function seedData() {
@@ -200,6 +215,7 @@ function seedData() {
       { id: uid(), description: "Salário CPLU", type: "receita", category: "", amount: 2200, dayOfMonth: 5 },
       { id: uid(), description: "Aluguel + contas", type: "despesa_fixa", category: "Moradia", amount: 950, dayOfMonth: 8 },
     ],
+    settings: { brapiToken: "" },
   };
 }
 
@@ -1229,30 +1245,59 @@ function Metas({ data, c, update, modal, setModal }) {
    INVESTIMENTOS
    ============================================================ */
 function Investimentos({ data, c, update, modal, setModal }) {
-  const emptyForm = { broker: "", type: INVESTMENT_TYPES[0], currentValue: "", initialAmount: "", initialDate: todayISO(), dividends: "" };
+  const emptyForm = { broker: "", type: INVESTMENT_TYPES[0], currentValue: "", initialAmount: "", initialDate: todayISO(), dividends: "", ticker: "", quantity: "" };
   const [form, setForm] = useState(emptyForm);
+  const [quoteBusy, setQuoteBusy] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
+  const [quoteOkAt, setQuoteOkAt] = useState(null);
 
   const openNew = () => { setForm(emptyForm); setModal({ type: "inv-new" }); };
-  const openEdit = (inv) => { setForm({ broker: inv.broker, type: inv.type, currentValue: inv.currentValue, dividends: inv.dividends, initialAmount: "", initialDate: todayISO() }); setModal({ type: "inv-edit", id: inv.id }); };
+  const openEdit = (inv) => { setForm({ broker: inv.broker, type: inv.type, currentValue: inv.currentValue, dividends: inv.dividends, initialAmount: "", initialDate: todayISO(), ticker: inv.ticker || "", quantity: inv.quantity || "" }); setModal({ type: "inv-edit", id: inv.id }); };
   const remove = (id) => update((d) => { d.investments = d.investments.filter((i) => i.id !== id); });
 
   const save = () => {
     if (!form.broker || !form.currentValue) return;
+    const tickerFields = TICKER_TYPES.includes(form.type)
+      ? { ticker: form.ticker ? form.ticker.toUpperCase() : "", quantity: Number(form.quantity || 0) }
+      : { ticker: "", quantity: 0 };
     update((d) => {
       if (modal.type === "inv-edit") {
         const inv = d.investments.find((i) => i.id === modal.id);
-        Object.assign(inv, { broker: form.broker, type: form.type, currentValue: Number(form.currentValue), dividends: Number(form.dividends || 0) });
+        Object.assign(inv, { broker: form.broker, type: form.type, currentValue: Number(form.currentValue), dividends: Number(form.dividends || 0), ...tickerFields });
       } else {
         const initialDividends = Number(form.dividends || 0);
         d.investments.push({
           id: uid(), broker: form.broker, type: form.type, currentValue: Number(form.currentValue),
-          dividends: initialDividends,
+          dividends: initialDividends, ...tickerFields,
           contributions: form.initialAmount ? [{ id: uid(), date: form.initialDate, amount: Number(form.initialAmount) }] : [],
           dividendHistory: initialDividends > 0 ? [{ id: uid(), date: form.initialDate || todayISO(), amount: initialDividends }] : [],
         });
       }
     });
     setModal(null);
+  };
+
+  const updateQuotes = async () => {
+    const tickered = data.investments.filter((i) => i.ticker && i.quantity);
+    if (tickered.length === 0) return;
+    setQuoteBusy(true);
+    setQuoteError("");
+    setQuoteOkAt(null);
+    try {
+      const prices = await fetchBrapiQuotes(tickered.map((i) => i.ticker), data.settings?.brapiToken);
+      update((d) => {
+        d.investments.forEach((inv) => {
+          if (inv.ticker && inv.quantity && prices[inv.ticker] != null) {
+            inv.currentValue = Math.round(prices[inv.ticker] * inv.quantity * 100) / 100;
+          }
+        });
+      });
+      setQuoteOkAt(new Date().toLocaleTimeString("pt-BR"));
+    } catch (e) {
+      setQuoteError(e.message);
+    } finally {
+      setQuoteBusy(false);
+    }
   };
 
   const [amountModal, setAmountModal] = useState({ open: false, invId: null, kind: null, value: "", date: todayISO() });
@@ -1290,6 +1335,21 @@ function Investimentos({ data, c, update, modal, setModal }) {
         <StatCard label="Dividendos recebidos" value={fmtBRL(c.totalDividends)} accent="emerald" />
       </div>
 
+      <div style={{ background: T.surface1, border: `1px solid ${T.border}`, borderRadius: 16, padding: 16, marginBottom: 18, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: T.textSecondary }}>Token brapi.dev (pra cotação automática de Ações/FII/ETF)</span>
+        <TextInput
+          type="password" defaultValue={data.settings?.brapiToken || ""}
+          onBlur={(e) => update((d) => { d.settings = d.settings || {}; d.settings.brapiToken = e.target.value; })}
+          placeholder="cole seu token aqui" style={{ width: 220 }}
+        />
+        <a href="https://brapi.dev/dashboard" target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: T.blue }}>pegar token grátis →</a>
+        <Btn small variant="ghost" onClick={updateQuotes} style={{ marginLeft: "auto", opacity: quoteBusy ? 0.7 : 1 }}>
+          <Icon name="refresh" size={13} /> {quoteBusy ? "atualizando..." : "atualizar cotações"}
+        </Btn>
+        {quoteError && <span style={{ fontSize: 11.5, color: T.red, width: "100%" }}>{quoteError}</span>}
+        {quoteOkAt && !quoteError && <span style={{ fontSize: 11.5, color: T.emerald, width: "100%" }}>Cotações atualizadas às {quoteOkAt}.</span>}
+      </div>
+
       {c.investments.length === 0 && <EmptyState text="Nenhum investimento cadastrado." cta="Cadastrar investimento" onClick={openNew} />}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1299,10 +1359,11 @@ function Investimentos({ data, c, update, modal, setModal }) {
             <div key={inv.id} style={{ background: T.surface1, border: `1px solid ${T.border}`, borderRadius: 16, padding: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
                 <div>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>{inv.broker}</p>
                     <Badge tone="blue">{inv.type}</Badge>
                     <Badge tone="neutral">{fmtPct(participacao)} da carteira</Badge>
+                    {inv.ticker && <Badge tone="amber">{inv.ticker} · {inv.quantity} cotas</Badge>}
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px,1fr))", gap: "4px 20px", marginTop: 10, fontSize: 12, color: T.textSecondary, fontFamily: "'Manrope', 'Inter', sans-serif" }}>
                     <span>Investido: <b style={{ color: T.textPrimary }}>{fmtBRL(inv.invested)}</b></span>
@@ -1346,7 +1407,16 @@ function Investimentos({ data, c, update, modal, setModal }) {
                 <Field label="Data do aporte"><TextInput type="date" value={form.initialDate} onChange={(e) => setForm({ ...form, initialDate: e.target.value })} /></Field>
               </div>
             )}
+            {TICKER_TYPES.includes(form.type) && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <Field label="Ticker (ex: MXRF11)"><TextInput value={form.ticker} onChange={(e) => setForm({ ...form, ticker: e.target.value.toUpperCase() })} placeholder="MXRF11" /></Field>
+                <Field label="Quantidade de cotas/ações"><TextInput type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} /></Field>
+              </div>
+            )}
             <Field label="Valor atual (R$)"><TextInput type="number" value={form.currentValue} onChange={(e) => setForm({ ...form, currentValue: e.target.value })} placeholder="Se igual ao aporte, deixe o mesmo valor" /></Field>
+            {TICKER_TYPES.includes(form.type) && form.ticker && (
+              <p style={{ fontSize: 11, color: T.textMuted, margin: 0 }}>Com ticker configurado, "atualizar cotações" recalcula esse valor automaticamente (cotas × preço de mercado).</p>
+            )}
             <Field label="Dividendos já recebidos (R$)"><TextInput type="number" value={form.dividends} onChange={(e) => setForm({ ...form, dividends: e.target.value })} /></Field>
             <Btn variant="primary" onClick={save} style={{ justifyContent: "center", marginTop: 6 }}>{modal.type === "inv-new" ? "Salvar investimento" : "Salvar alterações"}</Btn>
           </div>
