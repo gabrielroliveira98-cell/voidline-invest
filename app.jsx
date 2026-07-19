@@ -395,10 +395,10 @@ const inputStyle = {
   padding: "9px 12px", fontSize: 13, fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box",
 };
 
-function TextInput(props) {
-  return <input {...props} style={{ ...inputStyle, ...(props.style || {}) }}
-    onFocus={(e) => { e.target.style.borderColor = T.amber; }}
-    onBlur={(e) => { e.target.style.borderColor = T.border; }} />;
+function TextInput({ onFocus, onBlur, style, ...rest }) {
+  return <input {...rest} style={{ ...inputStyle, ...(style || {}) }}
+    onFocus={(e) => { e.target.style.borderColor = T.amber; if (onFocus) onFocus(e); }}
+    onBlur={(e) => { e.target.style.borderColor = T.border; if (onBlur) onBlur(e); }} />;
 }
 function Select(props) {
   return <select {...props} style={{ ...inputStyle, ...(props.style || {}) }} />;
@@ -536,7 +536,7 @@ function LoginScreen() {
           }}>
             <Icon name="trend" size={26} color="#fff" />
           </span>
-          <p style={{ fontFamily: "'Manrope', 'Inter', sans-serif", fontSize: 19, fontWeight: 800, margin: 0 }}>
+          <p style={{ fontFamily: "'Manrope', 'Inter', sans-serif", fontSize: 19, fontWeight: 800, margin: 0, color: T.textPrimary }}>
             VoidLine <span style={{ color: T.amber }}>Invest</span>
           </p>
         </div>
@@ -814,6 +814,12 @@ function App() {
           .fd-main { padding: 14px 12px 84px; }
           .fd-grid-main, .fd-grid-2 { grid-template-columns: 1fr; }
           h1 { font-size: 17px !important; }
+        }
+        @media (max-width:600px) {
+          .fd-alerts-panel {
+            position: fixed !important; left: 4vw !important; right: 4vw !important; top: 84px !important;
+            width: auto !important; max-width: none !important;
+          }
         }
         @media (max-width:420px) {
           .fd-main { padding: 10px 8px 84px; }
