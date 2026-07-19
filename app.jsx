@@ -1243,11 +1243,12 @@ function Investimentos({ data, c, update, modal, setModal }) {
         const inv = d.investments.find((i) => i.id === modal.id);
         Object.assign(inv, { broker: form.broker, type: form.type, currentValue: Number(form.currentValue), dividends: Number(form.dividends || 0) });
       } else {
+        const initialDividends = Number(form.dividends || 0);
         d.investments.push({
           id: uid(), broker: form.broker, type: form.type, currentValue: Number(form.currentValue),
-          dividends: Number(form.dividends || 0),
+          dividends: initialDividends,
           contributions: form.initialAmount ? [{ id: uid(), date: form.initialDate, amount: Number(form.initialAmount) }] : [],
-          dividendHistory: [],
+          dividendHistory: initialDividends > 0 ? [{ id: uid(), date: form.initialDate || todayISO(), amount: initialDividends }] : [],
         });
       }
     });
