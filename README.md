@@ -1,8 +1,8 @@
-# VoidLine Invest
+# Patrimônio+
 
 Painel pessoal de finanças: metas, investimentos, controle de gastos, dívidas, projeções e indicadores.
 
-Todos os dados ficam salvos apenas no navegador de cada visitante (`localStorage`) — nada é enviado a um servidor.
+Login por conta (e-mail/senha ou Google) via Firebase Auth; os dados de cada conta ficam salvos no Firestore, sincronizados entre dispositivos.
 
 ## Rodar localmente
 

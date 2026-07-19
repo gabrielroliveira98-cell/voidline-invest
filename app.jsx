@@ -468,7 +468,7 @@ function SplashScreen() {
       </span>
       <div style={{ textAlign: "center" }}>
         <p style={{ fontFamily: "'Manrope', 'Inter', sans-serif", fontSize: 24, fontWeight: 800, letterSpacing: -0.5, color: T.textPrimary, margin: 0 }}>
-          VoidLine <span style={{ color: T.amber }}>Invest</span>
+          Patrimônio<span style={{ color: T.amber }}>+</span>
         </p>
         <p style={{ fontSize: 12.5, color: T.textMuted, margin: "6px 0 0", letterSpacing: 0.3 }}>
           controle financeiro pessoal
@@ -553,7 +553,7 @@ function LoginScreen() {
             <Icon name="trend" size={26} color="#fff" />
           </span>
           <p style={{ fontFamily: "'Manrope', 'Inter', sans-serif", fontSize: 19, fontWeight: 800, margin: 0, color: T.textPrimary }}>
-            VoidLine <span style={{ color: T.amber }}>Invest</span>
+            Patrimônio<span style={{ color: T.amber }}>+</span>
           </p>
         </div>
 
@@ -755,7 +755,7 @@ function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `voidline-invest-backup-${todayISO()}.json`;
+    a.download = `patrimonio-mais-backup-${todayISO()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -851,7 +851,7 @@ function App() {
             width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, ${T.amber}, #6C5CE0)`,
             display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
           }}><Icon name="trend" size={17} color="#fff" /></span>
-          <span style={{ fontFamily: "'Manrope', 'Inter', sans-serif", fontSize: 15, fontWeight: 800, letterSpacing: -0.3 }}>VoidLine <span style={{ color: T.amber }}>Invest</span></span>
+          <span style={{ fontFamily: "'Manrope', 'Inter', sans-serif", fontSize: 15, fontWeight: 800, letterSpacing: -0.3 }}>Patrimônio<span style={{ color: T.amber }}>+</span></span>
         </div>
         {NAV.map((n) => (
           <div key={n.id} className={`navbtn ${tab === n.id ? "active" : ""}`} onClick={() => setTab(n.id)}>

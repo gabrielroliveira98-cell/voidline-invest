@@ -1,4 +1,4 @@
-const CACHE_NAME = "voidline-invest-v1";
+const CACHE_NAME = "patrimonio-mais-v1";
 const CORE_ASSETS = [
   "./",
   "./index.html",
